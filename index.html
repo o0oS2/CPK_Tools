@@ -60,6 +60,8 @@ body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
 .case.more{align-self:center;color:var(--accent);border-color:var(--accent)}
 .tb-f{flex:none;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500}
 .toolbar input[type=number]{width:72px;padding:7px 8px;font-size:14px}
+.toolbar input[type=number]{-moz-appearance:textfield;appearance:textfield}
+.toolbar input[type=number]::-webkit-outer-spin-button,.toolbar input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .toolbar select{width:auto;padding:7px 8px;font-size:14px}
 .toolbar button.op{flex:none;min-width:44px;padding:7px 10px;font-size:16px;line-height:1.2;background:var(--panel);color:var(--ink);border:1px solid var(--line)}
 @media(max-width:860px){.toolbar{padding:8px 12px}}
@@ -140,8 +142,10 @@ dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
 /* điện thoại: thanh công cụ xuống dòng, không dính trên cùng */
 @media(max-width:860px){
   .toolbar{position:static;flex-wrap:wrap;white-space:normal;overflow-x:visible;gap:8px 10px}
-  .toolbar .tb-name{flex:1 1 80px;min-width:0;white-space:nowrap}
-  .toolbar .tb-f{flex:1 1 100%;flex-wrap:wrap;gap:6px 8px}
+  .toolbar .tb-name{flex:1 1 calc(100% - 90px);min-width:0;white-space:nowrap}
+  .toolbar .tb-f{flex:0 1 auto;flex-wrap:nowrap;white-space:nowrap;gap:4px;font-size:13px}
+  .toolbar input[type=number]{width:52px;padding:7px 6px;font-size:14px;text-align:center}
+  .toolbar button.op{min-width:34px;padding:7px 6px}
   .toolbar #run,.toolbar #dl{flex:1 1 calc(50% - 6px);padding:10px 12px}
 }
 </style>

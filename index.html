@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lọc CPK</title>
+<meta name="description" content="Lọc CPK: chọn pcs để mọi item đạt Cpk, đọc file Excel ngay trên trình duyệt.">
+<meta name="theme-color" content="#0f5c8c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lọc CPK">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta property="og:title" content="Lọc CPK">
+<meta property="og:description" content="Chọn pcs để mọi item đạt Cpk, đọc file Excel ngay trên trình duyệt.">
+<meta property="og:image" content="icons/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#eceff2; --panel:#ffffff; --ink:#15202b; --muted:#5d6b79; --line:#d3d9df;
+  --accent:#0f5c8c; --accent-ink:#ffffff;
+  --ok:#17794a; --ok-bg:#e3f3ea; --bad:#b4351f; --bad-bg:#fbe7e2; --warn-bg:#fff3d6;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#12181e; --panel:#1b232b; --ink:#e7ecf1; --muted:#93a1af; --line:#2f3a45;
+    --accent:#4aa3d8; --accent-ink:#06121b; --ok:#5fd08f; --ok-bg:#16301f; --bad:#ff8d77; --bad-bg:#3a1d17; --warn-bg:#3a3014;}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;font-variant-numeric:tabular-nums}
+header{padding:20px 24px 4px}
+h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:var(--muted);font-size:14px}
+body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+.wrap{padding:16px 24px 40px;flex:1}
+@media(max-width:860px){.wrap{padding:12px}}
+.toolbar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:nowrap;align-items:center;gap:12px;padding:10px 24px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap}
+.toolbar.over{outline:2px dashed var(--accent);outline-offset:-4px}
+.toolbar button,.toolbar .pick{flex:none;padding:8px 14px;font-size:14px}
+.pick{display:inline-block;font-weight:500;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.pick input{display:none}
+.tb-name{flex:1 1 140px;min-width:100px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:14px}
+.tb-name.has{color:var(--ink);font-weight:500}
+.tb-pcs{flex:none;font-weight:600;font-size:14px;padding:4px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
+.panel .verdict{margin-bottom:12px}
+.cases-head{font-size:13px;color:var(--muted);margin:0 0 8px}
+.cases-head b{color:var(--ink);font-weight:600}
+.cases{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.case{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;padding:7px 11px;font-size:13px;font-weight:500;background:transparent;color:var(--ink);border:1px solid var(--line);max-width:100%}
+.case small{font-weight:400;color:var(--muted);font-size:12px;word-break:break-word}
+.case.ok{border-color:var(--ok)}
+.case.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.case.on small{color:inherit;opacity:.9}
+.case.more{align-self:center;color:var(--accent);border-color:var(--accent)}
+.tb-f{flex:none;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500}
+.toolbar input[type=number]{width:72px;padding:7px 8px;font-size:14px}
+.toolbar select{width:auto;padding:7px 8px;font-size:14px}
+@media(max-width:860px){.toolbar{padding:8px 12px}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+.side{position:sticky;top:12px;display:flex;flex-direction:column;gap:14px}
+@media(max-width:860px){.side{position:static}}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:18px 12px;text-align:center;cursor:pointer;color:var(--muted);font-size:14px;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.drop b{color:var(--ink);display:block;font-weight:500;margin-bottom:2px;word-break:break-all}
+.drop input{display:none}
+label.f{display:block;font-size:13px;font-weight:500;margin-bottom:4px}
+.f-hint{font-weight:400;color:var(--muted)}
+input[type=number],select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:inherit;font-size:15px}
+input:focus-visible,select:focus-visible,button:focus-visible,.chip:focus-visible,.drop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:inherit;font-size:14px;font-weight:500;padding:10px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.btns{display:flex;flex-direction:column;gap:8px}
+.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.empty{padding:48px 20px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px;font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.stat span{display:block;font-size:12px;color:var(--muted)}
+.stat strong{font-size:22px;font-weight:600}
+.verdict{padding:12px 14px;border-radius:6px;font-size:15px;font-weight:500}
+.verdict.ok{background:var(--ok-bg);color:var(--ok)}
+.verdict.bad{background:var(--bad-bg);color:var(--bad)}
+.verdict small{display:block;font-weight:400;opacity:.9;margin-top:2px}
+h2{font-size:15px;font-weight:600;margin:0 0 4px}
+.sub{font-size:13px;color:var(--muted);margin:0 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-width:38px;padding:5px 8px;border-radius:6px;border:1px solid var(--ok);background:var(--ok-bg);color:var(--ok);font-size:13px;font-weight:500;text-align:center;cursor:pointer;user-select:none}
+.chip.off{border-color:var(--line);background:transparent;color:var(--muted);text-decoration:line-through}
+.removed{margin-top:12px;padding:10px 12px;background:var(--warn-bg);border-radius:6px;font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.removed code{font:inherit;font-weight:600;word-break:break-word}
+.removed button{padding:5px 10px;font-size:13px}
+.tbl-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.tbl-head label{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center;cursor:pointer}
+.scroll{overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--panel);font-weight:600;font-size:12.5px;color:var(--muted);z-index:1;border-bottom:1px solid var(--line)}
+td.num,th.num{text-align:right}
+td.item{white-space:normal;min-width:200px}
+tr:last-child td{border-bottom:0}
+.bad{color:var(--bad);font-weight:600}
+.good{color:var(--ok);font-weight:600}
+.err{background:var(--bad-bg);color:var(--bad);padding:10px 12px;border-radius:6px;font-size:14px}
+
+/* header + chân trang */
+header.top{display:flex;align-items:center;gap:12px;padding:12px 24px;background:var(--panel);border-bottom:1px solid var(--line)}
+header.top img{width:36px;height:36px;border-radius:8px;flex:none}
+header.top h1{flex:1;min-width:0;font-size:22px;white-space:nowrap}
+.hbtns{display:flex;gap:8px;flex:none}
+.hbtns button{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;font-size:14px}
+.hbtns svg{width:16px;height:16px;flex:none}
+#installBtn[hidden]{display:none}
+@media(max-width:860px){header.top{padding:10px 12px}header.top h1{font-size:20px}}
+@media(max-width:380px){.hbtns button span{display:none}.hbtns button{padding:8px 10px}}
+footer{padding:20px 24px 28px;border-top:1px solid var(--line);background:var(--panel);text-align:center;font-size:13.5px;color:var(--muted)}
+footer nav{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px;margin-bottom:10px}
+footer a{color:var(--accent);text-decoration:none;font-weight:500}
+footer a:hover{text-decoration:underline}
+footer a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+footer p{margin:0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;max-width:calc(100% - 32px);transition:opacity .2s,transform .2s;z-index:50;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);padding:20px;max-width:380px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog h2{font-size:17px;margin:0 0 8px}
+dialog p,dialog ol{font-size:14px;margin:0 0 10px;padding-left:0}
+dialog ol{padding-left:20px}
+dialog li{margin-bottom:4px}
+dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
+</style>
+</head>
+<body>
+<header class="top">
+  <img src="icons/icon-192.png" alt="" width="36" height="36">
+  <h1>Lọc CPK</h1>
+  <div class="hbtns">
+    <button type="button" class="ghost" id="shareBtn" title="Chia sẻ link trang này"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Chia sẻ</span></button>
+    <button type="button" id="installBtn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span id="installLbl">Cài app</span></button>
+  </div>
+</header>
+<div class="toolbar" id="drop">
+  <label class="pick" id="pick" tabindex="0">Chọn file<input type="file" id="file" accept=".xls,.xlsx,.xlsm,.csv"></label>
+  <span class="tb-name" id="fname">Chưa chọn file</span>
+  <span class="tb-pcs" id="pcsCount">– pcs</span>
+  <label class="tb-f" for="keepN">PCS cần:
+    <input type="number" id="keepN" min="2" step="1" placeholder="vd: 5" disabled></label>
+  <span class="tb-f" role="group" aria-label="Điều kiện CPK">
+    Điều kiện CPK:
+    <input type="number" id="hiV" step="0.01" placeholder="–" disabled title="Cận trên a (để trống = không giới hạn)" aria-label="Cận trên a">
+    <select id="hiOp" disabled aria-label="So sánh với cận trên" title="a &gt; CPK hoặc a ≥ CPK"><option value="ge">≥</option><option value="gt">&gt;</option></select>
+    <span>CPK</span>
+    <select id="loOp" disabled aria-label="So sánh với cận dưới" title="CPK &gt; b hoặc CPK ≥ b"><option value="ge">≥</option><option value="gt">&gt;</option></select>
+    <input type="number" id="loV" value="1.33" step="0.01" placeholder="–" disabled title="Cận dưới b (để trống = không giới hạn)" aria-label="Cận dưới b">
+  </span>
+  <button id="run" disabled>Phân tích</button>
+  <button id="dl" class="ghost" disabled>Tải file đã lọc</button>
+</div>
+
+<div class="wrap">
+  <main class="main" id="main">
+    <div class="panel empty"><b>Chưa có dữ liệu</b>Bấm “Chọn file” hoặc kéo thả file Excel vào trang để bắt đầu.</div>
+  </main>
+</div>
+
+
+<footer>
+  <nav aria-label="Liên kết khác">
+    <a href="https://chanquangcao.pages.dev/" target="_blank" rel="noopener">DNS Private &amp; VPN 1.1.1.1 by Cloudflare</a>
+    <a href="https://quetma.vercel.app/" target="_blank" rel="noopener">Quét - Check QR</a>
+    <a href="https://tinhluong.pages.dev/" target="_blank" rel="noopener">Chấm công - Tính lương</a>
+  </nav>
+  <p>© <a href="http://zalo.me/trungpl" target="_blank" rel="noopener">Đức Trung</a></p>
+</footer>
+<dialog id="helpDlg">
+  <h2 id="helpTitle">Cài app</h2>
+  <div id="helpBody"></div>
+  <div class="actions"><button type="button" id="helpClose">Đóng</button></div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id)};
+  var S = {cases:[], exact:true, caseShow:8, buf:null, r0:0, c0:0, rows:null, header:null, items:[], pcs:[], pcsCols:[], cols:{}, keep:[], name:'', wsName:''};
+
+
+  /* ---------- chia sẻ / cài app / PWA ---------- */
+  var toastT;
+  function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(function(){t.classList.remove('show')},2200); }
+  function pageUrl(){ return location.origin+location.pathname; }
+  $('shareBtn').addEventListener('click', function(){
+    var data={title:'Lọc CPK', text:'Lọc CPK – chọn pcs để mọi item đạt Cpk', url:pageUrl()};
+    if(navigator.share){
+      navigator.share(data).catch(function(e){ if(e&&e.name!=='AbortError') copyLink(); });
+    } else copyLink();
+  });
+  function copyLink(){
+    var u=pageUrl();
+    function fallback(){
+      var ta=document.createElement('textarea'); ta.value=u; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); toast('Đã sao chép link'); }catch(e){ toast(u); }
+      document.body.removeChild(ta);
+    }
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(function(){toast('Đã sao chép link')},fallback);
+    else fallback();
+  }
+
+  var isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  var isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  var installLabel=isMobile?'Cài app':'Cài ứng dụng';
+  $('installLbl').textContent=installLabel;
+  $('installBtn').title=installLabel;
+  var standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+  var deferred=null;
+  if(!standalone) $('installBtn').hidden=false;
+
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e; });
+  window.addEventListener('appinstalled', function(){ deferred=null; $('installBtn').hidden=true; toast('Đã cài xong'); });
+
+  $('installBtn').addEventListener('click', function(){
+    if(deferred){
+      deferred.prompt();
+      deferred.userChoice.then(function(){ deferred=null; });
+      return;
+    }
+    var body;
+    if(isIOS){
+      body='<p>Trên iPhone/iPad, mở bằng <b>Safari</b> rồi:</p><ol><li>Bấm nút <b>Chia sẻ</b> (hình ô vuông có mũi tên lên).</li><li>Chọn <b>Thêm vào MH chính</b> (Add to Home Screen).</li><li>Bấm <b>Thêm</b>.</li></ol>';
+    } else if(isMobile){
+      body='<p>Mở menu <b>⋮</b> của trình duyệt (Chrome/Edge) rồi chọn <b>Cài đặt ứng dụng</b> hoặc <b>Thêm vào màn hình chính</b>.</p>';
+    } else {
+      body='<p>Trên Chrome/Edge, bấm biểu tượng <b>cài đặt</b> ở cuối thanh địa chỉ, hoặc mở menu <b>⋮</b> → <b>Truyền, lưu và chia sẻ</b> → <b>Cài đặt trang này dưới dạng ứng dụng</b>.</p><p>Nếu dùng Firefox/Safari trên máy tính, hãy mở bằng Chrome hoặc Edge để cài.</p>';
+    }
+    $('helpTitle').textContent=installLabel;
+    $('helpBody').innerHTML=body;
+    var d=$('helpDlg'); if(d.showModal) d.showModal(); else d.setAttribute('open','');
+  });
+  $('helpClose').addEventListener('click', function(){ var d=$('helpDlg'); if(d.close) d.close(); else d.removeAttribute('open'); });
+
+  if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+
+  /* ---------- đọc file ---------- */
+  var fileEl=$('file'), dropEl=$('drop'), pickEl=$('pick');
+  fileEl.addEventListener('change', function(){ if(fileEl.files[0]) load(fileEl.files[0]); });
+  document.addEventListener('dragover', function(e){e.preventDefault();dropEl.classList.add('over')});
+  document.addEventListener('dragleave', function(e){ if(!e.relatedTarget) dropEl.classList.remove('over'); });
+  document.addEventListener('drop', function(e){e.preventDefault();dropEl.classList.remove('over');if(e.dataTransfer.files[0]) load(e.dataTransfer.files[0]);});
+  pickEl.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();fileEl.click();} });
+
+  function showError(msg){ $('main').innerHTML='<div class="err">'+esc(msg)+'</div>'; }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]}); }
+
+  function load(f){
+    if(typeof XLSX==='undefined'){ showError('Chưa tải được thư viện đọc Excel. Hãy kiểm tra kết nối Internet rồi mở lại trang.'); return; }
+    var r=new FileReader();
+    r.onload=function(e){
+      try{
+        S.buf=e.target.result;
+        var wb=XLSX.read(S.buf,{type:'array',cellStyles:true,cellNF:true});
+        var ws=wb.Sheets[wb.SheetNames[0]];
+        S.wsName=wb.SheetNames[0];
+        var rg=XLSX.utils.decode_range(ws['!ref']||'A1');
+        S.r0=rg.s.r; S.c0=rg.s.c;
+        var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+        parse(rows);
+        S.name=f.name.replace(/\.[^.]+$/,'');
+        $('fname').textContent=f.name; $('fname').classList.add('has'); $('fname').title=f.name;
+        ['keepN','hiV','hiOp','loOp','loV','run'].forEach(function(id){$(id).disabled=false});
+        $('keepN').max=S.pcs.length;
+        $('keepN').value=S.pcs.length;
+        $('pcsCount').textContent=S.pcs.length+' pcs';
+        run();
+      }catch(err){ showError(err.message||String(err)); }
+    };
+    r.readAsArrayBuffer(f);
+  }
+
+  function parse(rows){
+    if(!rows.length) throw new Error('File không có dữ liệu.');
+    var h=rows[0].map(function(x){return x==null?'':String(x).trim()});
+    var low=h.map(function(x){return x.toLowerCase()});
+    function find(n){return low.indexOf(n)}
+    var c={item:find('item'), nom:find('nominal'), up:find('uptol'), lo:find('lowtol'),
+           avg:find('average'), max:find('max'), min:find('min'), range:find('range'), cp:find('cp'), cpk:find('cpk')};
+    if(c.item<0) c.item=0;
+    if(c.nom<0||c.up<0||c.lo<0) throw new Error('Không tìm thấy các cột Nominal, UpTol, LowTol ở dòng đầu. Dòng đầu cần có: Item, Nominal, UpTol, LowTol, các pcs, Average, Max, Min, Range, Cp, Cpk.');
+    var end=c.avg>=0?c.avg:(c.max>=0?c.max:h.length);
+    var pcsCols=[];
+    for(var j=c.lo+1;j<end;j++){ if(h[j]!=='') pcsCols.push(j); }
+    if(pcsCols.length<2) throw new Error('Cần ít nhất 2 cột kết quả đo giữa LowTol và Average.');
+    var items=[];
+    for(var i=1;i<rows.length;i++){
+      var r=rows[i];
+      if(!r||r[c.item]==null||String(r[c.item]).trim()==='') continue;
+      var nom=Number(r[c.nom]), up=Number(r[c.up]), lo=Number(r[c.lo]);
+      if(!isFinite(nom)||!isFinite(up)||!isFinite(lo)) continue;
+      var vals=pcsCols.map(function(j){var v=r[j]; return (typeof v==='number'&&isFinite(v))?v:NaN;});
+      items.push({rowIdx:i, name:String(r[c.item]), nom:nom, up:up, lo:lo, vals:vals});
+    }
+    if(!items.length) throw new Error('Không có dòng dữ liệu hợp lệ nào.');
+    S.rows=rows; S.header=h; S.cols=c; S.pcsCols=pcsCols; S.items=items;
+    S.pcs=pcsCols.map(function(j){return rows[0][j]});
+    S.keep=S.pcs.map(function(){return true});
+  }
+
+  /* ---------- tính thống kê ---------- */
+  function stats(it, mask){
+    var v=[], k;
+    for(k=0;k<it.vals.length;k++){ if(mask[k] && !isNaN(it.vals[k])) v.push(it.vals[k]); }
+    var n=v.length;
+    if(n===0) return {n:0,avg:NaN,max:NaN,min:NaN,range:NaN,cp:NaN,cpk:NaN};
+    var s1=0,s2=0,mx=-Infinity,mn=Infinity;
+    for(k=0;k<n;k++){ var d=v[k]-it.nom; s1+=d; s2+=d*d; if(v[k]>mx)mx=v[k]; if(v[k]<mn)mn=v[k]; }
+    var m=s1/n, avg=it.nom+m, res={n:n,avg:avg,max:mx,min:mn,range:mx-mn,cp:NaN,cpk:NaN};
+    if(n>=2){
+      var cc=cpkFrom(it,s1,s2,n); res.cp=cc.cp; res.cpk=cc.cpk;
+    }
+    return res;
+  }
+  function cpkFrom(it,s1,s2,n){
+    var m=s1/n, varr=(s2-s1*s1/n)/(n-1);
+    var sd=varr>1e-18?Math.sqrt(varr):0;
+    if(sd===0){ var inside=(m<=it.up&&m>=it.lo); return {cp:Infinity,cpk:inside?Infinity:0}; }
+    return {cp:(it.up-it.lo)/(6*sd), cpk:Math.min(it.up-m, m-it.lo)/(3*sd)};
+  }
+
+  /* ---------- tối ưu chọn pcs ---------- */
+  var LO=1.33, HI=null, LOE=true, HIE=true, EPS=1e-12;
+  function passes(c){
+    if(isNaN(c)) return false;
+    if(LO!==null && !(LOE? c>=LO-EPS : c>LO+EPS)) return false;
+    if(HI!==null && !(HIE? c<=HI+EPS : c<HI-EPS)) return false;
+    return true;
+  }
+  function gap(c){
+    if(isNaN(c)) return 15;
+    var g=0;
+    if(LO!==null && c<LO) g=LO-c;
+    if(HI!==null && c>HI) g=c-HI;
+    return Math.min(10,g);
+  }
+  function condText(){
+    var s='Cpk';
+    if(LO===null) return 'Cpk '+(HIE?'≤':'<')+' '+HI;
+    s+=' '+(LOE?'≥':'>')+' '+LO;
+    if(HI!==null) s=HI+' '+(HIE?'≥':'>')+' '+s;
+    return s;
+  }
+  function optimise(K){
+    var N=S.pcs.length, M=S.items.length, i, j;
+    var X=[],H=[];
+    for(i=0;i<M;i++){
+      var xr=[],hr=[];
+      for(j=0;j<N;j++){ var v=S.items[i].vals[j]; if(isNaN(v)){xr.push(0);hr.push(0);} else {xr.push(v-S.items[i].nom);hr.push(1);} }
+      X.push(xr);H.push(hr);
+    }
+    function sums(mask){
+      var A=[],B=[],C=[];
+      for(var i=0;i<M;i++){ var a=0,b=0,c=0; for(var j=0;j<N;j++){ if(mask[j]&&H[i][j]){a+=X[i][j];b+=X[i][j]*X[i][j];c++;} } A.push(a);B.push(b);C.push(c); }
+      return {A:A,B:B,C:C};
+    }
+    function cost(sm,rem,add){
+      var fail=0, short=0;
+      for(var i=0;i<M;i++){
+        var a=sm.A[i],b=sm.B[i],c=sm.C[i];
+        if(rem>=0&&H[i][rem]){var x=X[i][rem];a-=x;b-=x*x;c--;}
+        if(add>=0&&H[i][add]){var y=X[i][add];a+=y;b+=y*y;c++;}
+        var cpk;
+        if(c<2) cpk=NaN; else cpk=cpkFrom(S.items[i],a,b,c).cpk;
+        if(!passes(cpk)){ fail++; short+=gap(cpk); }
+      }
+      return [fail,short];
+    }
+    function better(p,q){ return p[0]<q[0] || (p[0]===q[0] && p[1]<q[1]-1e-12); }
+    function apply(sm,mask,rem,add){
+      for(var i=0;i<M;i++){
+        if(rem>=0&&H[i][rem]){var x=X[i][rem];sm.A[i]-=x;sm.B[i]-=x*x;sm.C[i]--;}
+        if(add>=0&&H[i][add]){var y=X[i][add];sm.A[i]+=y;sm.B[i]+=y*y;sm.C[i]++;}
+      }
+      if(rem>=0) mask[rem]=false; if(add>=0) mask[add]=true;
+    }
+    function localSearch(mask){
+      var sm=sums(mask), cur=cost(sm,-1,-1), guard=0, improved=true;
+      while(improved && guard<300){
+        improved=false; guard++;
+        var bestC=cur, bR=-1, bA=-1;
+        for(var a=0;a<N;a++){ if(!mask[a]) continue;
+          for(var b=0;b<N;b++){ if(mask[b]) continue;
+            var c=cost(sm,a,b);
+            if(better(c,bestC)){bestC=c;bR=a;bA=b;}
+          }
+        }
+        if(bR>=0){ apply(sm,mask,bR,bA); cur=bestC; improved=true; }
+      }
+      return {mask:mask,cost:cur};
+    }
+    function greedy(){
+      var mask=[],j; for(j=0;j<N;j++) mask.push(true);
+      var sm=sums(mask), count=N;
+      while(count>K){
+        var best=null,bj=-1;
+        for(j=0;j<N;j++){ if(!mask[j]) continue; var c=cost(sm,j,-1); if(best===null||better(c,best)){best=c;bj=j;} }
+        apply(sm,mask,bj,-1); count--;
+      }
+      return mask;
+    }
+    function randomMask(){
+      var idx=[],j; for(j=0;j<N;j++) idx.push(j);
+      for(j=N-1;j>0;j--){var r=Math.floor(Math.random()*(j+1));var t=idx[j];idx[j]=idx[r];idx[r]=t;}
+      var mask=[]; for(j=0;j<N;j++) mask.push(false);
+      for(j=0;j<K;j++) mask[idx[j]]=true;
+      return mask;
+    }
+    var pool={}, exact=false;
+    function key(mask){ var k='',j; for(j=0;j<N;j++) k+=mask[j]?'1':'0'; return k; }
+    function add(mask){ var k=key(mask); if(!pool[k]) pool[k]=mask.slice(); }
+    function evalMask(mask){
+      var sm=sums(mask), fail=0, short=0, mc=Infinity;
+      for(var i=0;i<M;i++){
+        var c=sm.C[i], cpk=c<2?NaN:cpkFrom(S.items[i],sm.A[i],sm.B[i],c).cpk;
+        if(!passes(cpk)){fail++;short+=gap(cpk);}
+        if(isNaN(cpk)) mc=-Infinity; else if(cpk<mc) mc=cpk;
+      }
+      return {mask:mask,fail:fail,short:short,minCpk:mc};
+    }
+    var combos=1, kk=Math.min(K,N-K), q;
+    for(q=1;q<=kk;q++) combos=combos*(N-kk+q)/q;
+    if(combos*M*N<=6e7){
+      exact=true;
+      var mk=[],j; for(j=0;j<N;j++) mk.push(false);
+      (function rec(start,left){
+        if(left===0){ add(mk); return; }
+        for(var j=start;j<=N-left;j++){ mk[j]=true; rec(j+1,left-1); mk[j]=false; }
+      })(0,K);
+    } else {
+      add(localSearch(greedy()).mask);
+      var t0=Date.now();
+      for(var t=0;t<40 && Date.now()-t0<1500;t++) add(localSearch(randomMask()).mask);
+      /* mở rộng: thử đổi 1 pcs quanh các phương án tốt nhất */
+      var seeds=Object.keys(pool).map(function(k){return evalMask(pool[k]);}).sort(function(a,b){return a.fail-b.fail||a.short-b.short;}).slice(0,5);
+      seeds.forEach(function(sd){
+        if(sd.fail>0) return;
+        for(var a=0;a<N;a++){ if(!sd.mask[a]) continue;
+          for(var b=0;b<N;b++){ if(sd.mask[b]) continue;
+            var m2=sd.mask.slice(); m2[a]=false; m2[b]=true;
+            if(evalMask(m2).fail===0) add(m2);
+          }
+        }
+      });
+    }
+    var list=Object.keys(pool).map(function(k){return evalMask(pool[k]);});
+    list.sort(function(a,b){
+      if(a.fail!==b.fail) return a.fail-b.fail;
+      if(Math.abs(a.short-b.short)>1e-12) return a.short-b.short;
+      if(LO!==null && a.minCpk!==b.minCpk) return b.minCpk>a.minCpk?1:-1;
+      return 0;
+    });
+    return {list:list.slice(0,300), exact:exact};
+  }
+
+  /* ---------- chạy ---------- */
+  function readParams(){
+    function num(id){ var v=$(id).value.trim(); if(v==='') return null; v=parseFloat(v); return isFinite(v)?v:null; }
+    LO=num('loV'); HI=num('hiV'); LOE=$('loOp').value==='ge'; HIE=$('hiOp').value==='ge';
+    if(LO===null && HI===null){ LO=1.33; $('loV').value='1.33'; }
+  }
+  function run(){
+    if(!S.items.length) return;
+    readParams();
+    var N=S.pcs.length, K=parseInt($('keepN').value,10);
+    if(!isFinite(K)) K=N;
+    K=Math.max(2,Math.min(N,K)); $('keepN').value=K;
+    S.K=K;
+    if(K>=N){ S.cases=[]; S.keep=S.pcs.map(function(){return true}); S.exact=true; }
+    else { var res=optimise(K); S.cases=res.list; S.exact=res.exact; S.keep=res.list[0].mask.slice(); }
+    S.caseShow=8;
+    render();
+  }
+  $('run').addEventListener('click', run);
+  ['keepN','hiV','loV'].forEach(function(id){ $(id).addEventListener('keydown',function(e){if(e.key==='Enter')run();}); });
+  ['hiOp','loOp'].forEach(function(id){ $(id).addEventListener('change', run); });
+
+  /* ---------- hiển thị ---------- */
+  function fmt(x,d){
+    if(x===Infinity) return '∞'; if(x===-Infinity) return '-∞';
+    if(typeof x!=='number'||isNaN(x)) return '–';
+    return x.toFixed(d==null?3:d);
+  }
+  function compress(labels, flags){
+    var out=[], i=0, N=labels.length;
+    var nums=labels.every(function(l){return typeof l==='number' && Math.floor(l)===l});
+    var removed=[]; for(i=0;i<N;i++) if(!flags[i]) removed.push(i);
+    if(!removed.length) return 'Không loại pcs nào';
+    if(!nums) return removed.map(function(i){return labels[i]}).join(', ');
+    var vals=removed.map(function(i){return labels[i]}).sort(function(a,b){return a-b});
+    var s=vals[0], p=vals[0];
+    for(i=1;i<=vals.length;i++){
+      if(i<vals.length && vals[i]===p+1){ p=vals[i]; continue; }
+      out.push(s===p? String(s) : (p===s+1? s+', '+p : s+'-'+p));
+      if(i<vals.length){ s=vals[i]; p=vals[i]; }
+    }
+    return out.join(', ');
+  }
+  var showAll=false;
+  function maskText(mask){
+    var N=mask.length, kept=mask.filter(Boolean).length;
+    if(kept===N) return 'Giữ tất cả pcs';
+    if(N-kept<=kept) return 'Loại '+compress(S.pcs,mask);
+    return 'Giữ '+compress(S.pcs,mask.map(function(x){return !x}));
+  }
+  function casesHtml(){
+    if(!S.cases.length) return '';
+    var pass=S.cases.filter(function(c){return c.fail===0});
+    var list=pass.length?pass:S.cases;
+    var key=function(m){return m.map(function(x){return x?1:0}).join('')}, cur=key(S.keep);
+    var head=pass.length
+      ? 'Có <b>'+(S.exact?'':'ít nhất ')+pass.length+'</b> trường hợp đạt'+(S.cases.length>=300&&S.exact?'+':'')+'. Bấm vào một trường hợp để xem Cpk từng item:'
+      : 'Chưa có trường hợp nào đạt. Đây là các phương án gần đạt nhất, bấm để xem Cpk từng item:';
+    var shown=list.slice(0,S.caseShow);
+    var btns=shown.map(function(c,i){
+      var on=key(c.mask)===cur;
+      return '<button type="button" class="case'+(c.fail===0?' ok':'')+(on?' on':'')+'" data-c="'+S.cases.indexOf(c)+'" aria-pressed="'+on+'">'+
+        'Trường hợp '+(i+1)+'<small>'+esc(maskText(c.mask))+(c.fail===0?' · đạt':' · còn '+c.fail+' item không đạt')+'</small></button>';
+    }).join('');
+    if(list.length>shown.length) btns+='<button type="button" class="case more" id="moreCases">Xem thêm ('+(list.length-shown.length)+')</button>';
+    return '<p class="cases-head">'+head+'</p><div class="cases" id="cases">'+btns+'</div>';
+  }
+  function render(){
+    readParams();
+    var N=S.pcs.length, M=S.items.length, keptN=S.keep.filter(Boolean).length;
+    var allMask=S.pcs.map(function(){return true});
+    var before=S.items.map(function(it){return stats(it,allMask)});
+    var after=S.items.map(function(it){return stats(it,S.keep)});
+    var failB=before.filter(function(s){return !passes(s.cpk)}).length;
+    var failA=after.filter(function(s){return !passes(s.cpk)}).length;
+    var cond=condText();
+    var measures=0; S.items.forEach(function(it){it.vals.forEach(function(v){if(!isNaN(v))measures++})});
+
+    var verdict = failA===0
+      ? '<div class="verdict ok">Đạt: cả '+M+' item thỏa '+cond+'.<small>Giữ '+keptN+' pcs, loại '+(N-keptN)+' pcs.</small></div>'
+      : '<div class="verdict bad">Chưa đạt: còn '+failA+' / '+M+' item không thỏa '+cond+'.<small>Giữ '+keptN+' pcs, loại '+(N-keptN)+' pcs. Thử giảm số PCS cần hoặc sản xuất thêm pcs mới.</small></div>';
+
+    var chips=S.pcs.map(function(p,i){
+      return '<button type="button" class="chip'+(S.keep[i]?'':' off')+'" data-i="'+i+'" aria-pressed="'+S.keep[i]+'" title="Bấm để '+(S.keep[i]?'loại':'giữ lại')+' pcs '+esc(p)+'">'+esc(p)+'</button>';
+    }).join('');
+    var remTxt=compress(S.pcs,S.keep);
+    var note = (keptN!==S.K) ? ' <span style="color:var(--muted)">(đang giữ '+keptN+' pcs, khác mục tiêu '+S.K+')</span>' : '';
+
+    var order=S.items.map(function(_,i){return i}); /* theo thứ tự dòng trong file */
+    var rowsHtml=order.filter(function(i){ return showAll || !passes(before[i].cpk) || !passes(after[i].cpk); }).map(function(i){
+      var b=before[i], a=after[i];
+      return '<tr><td class="num">'+(S.items[i].rowIdx+1)+'</td><td class="item">'+esc(S.items[i].name)+'</td>'+
+        '<td class="num '+(passes(b.cpk)?'good':'bad')+'">'+fmt(b.cpk)+'</td>'+
+        '<td class="num '+(passes(a.cpk)?'good':'bad')+'">'+fmt(a.cpk)+'</td></tr>';
+    }).join('');
+    if(!rowsHtml) rowsHtml='<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px">Mọi item đều thỏa '+cond+'.</td></tr>';
+
+    $('main').innerHTML =
+      '<div class="panel"><div class="stats">'+
+        '<div class="stat"><span>Item</span><strong>'+M+'</strong></div>'+
+        '<div class="stat"><span>Pcs trong file</span><strong>'+N+'</strong></div>'+
+        '<div class="stat"><span>Kết quả đo</span><strong>'+measures+'</strong></div>'+
+        '<div class="stat"><span>Item không đạt trước lọc</span><strong class="'+(failB?'bad':'good')+'">'+failB+'</strong></div>'+
+        '<div class="stat"><span>Item không đạt sau lọc</span><strong class="'+(failA?'bad':'good')+'">'+failA+'</strong></div>'+
+      '</div></div>'+
+      '<div class="panel">'+verdict+casesHtml()+
+        '<p class="sub">Bấm vào từng pcs để đổi giữ/loại, bảng và file tải về sẽ tính lại theo lựa chọn đó.</p>'+
+        '<div class="chips" id="chips">'+chips+'</div>'+
+        '<div class="removed"><span>Pcs bị loại: <code id="remTxt">'+esc(remTxt)+'</code>'+note+'</span><button type="button" class="ghost" id="copyRem">Sao chép</button></div>'+
+      '</div>'+
+      '<div class="panel"><div class="tbl-head"><div><h2>Cpk từng item</h2><p class="sub" style="margin:0">Điều kiện: '+cond+'. Cột cuối là Cpk sau khi loại pcs.</p></div>'+
+        '<label><input type="checkbox" id="showAll"'+(showAll?' checked':'')+'> Hiện cả item đạt</label></div>'+
+        '<div class="scroll"><table><thead><tr><th class="num">Dòng</th><th>Item (cột A)</th><th class="num">Cpk trước lọc</th><th class="num">Cpk sau lọc</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div></div>';
+
+    $('dl').disabled=false;
+    $('chips').addEventListener('click',function(e){
+      var b=e.target.closest('.chip'); if(!b) return;
+      var i=+b.getAttribute('data-i');
+      if(S.keep[i] && S.keep.filter(Boolean).length<=2) return;
+      S.keep[i]=!S.keep[i]; render();
+      var nb=document.querySelector('.chip[data-i="'+i+'"]'); if(nb) nb.focus();
+    });
+    var cs=$('cases');
+    if(cs) cs.addEventListener('click',function(e){
+      var b=e.target.closest('.case'); if(!b) return;
+      if(b.id==='moreCases'){ S.caseShow+=12; render(); return; }
+      var i=+b.getAttribute('data-c');
+      S.keep=S.cases[i].mask.slice(); render();
+      var nb=document.querySelector('.case[data-c="'+i+'"]'); if(nb) nb.focus();
+    });
+    $('showAll').addEventListener('change',function(e){showAll=e.target.checked;render();});
+    $('copyRem').addEventListener('click',function(){
+      var t=$('remTxt').textContent, btn=$('copyRem');
+      var done=function(){btn.textContent='Đã sao chép';setTimeout(function(){btn.textContent='Sao chép'},1400)};
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,done);} else done();
+    });
+  }
+
+  /* ---------- tải file Excel đã lọc (sửa trực tiếp trên file gốc) ---------- */
+  $('dl').addEventListener('click', function(){
+    if(!S.items.length||!S.buf) return;
+    readParams();
+    var wb=XLSX.read(S.buf,{type:'array',cellStyles:true,cellNF:true});
+    var ws=wb.Sheets[wb.SheetNames[0]], r0=S.r0, c0=S.c0;
+    var c={}, k, width=S.header.length, rg=XLSX.utils.decode_range(ws['!ref']);
+    for(k in S.cols) c[k]=S.cols[k];
+    ['avg','max','min','range','cp','cpk'].forEach(function(key){
+      if(c[key]<0){ c[key]=width++; ws[XLSX.utils.encode_cell({r:r0,c:c0+c[key]})]={t:'s',v:key.charAt(0).toUpperCase()+key.slice(1)}; }
+    });
+    if(c0+width-1>rg.e.c){ rg.e.c=c0+width-1; ws['!ref']=XLSX.utils.encode_range(rg); }
+    S.items.forEach(function(it){
+      var r=r0+it.rowIdx;
+      /* xóa dữ liệu của pcs bị loại, giữ nguyên ô/định dạng còn lại */
+      S.pcsCols.forEach(function(col,idx){
+        if(!S.keep[idx]) delete ws[XLSX.utils.encode_cell({r:r,c:c0+col})];
+      });
+      var st=stats(it,S.keep);
+      function put(key,val){
+        var addr=XLSX.utils.encode_cell({r:r,c:c0+c[key]}), old=ws[addr], z=old&&old.z;
+        if(typeof val==='number'&&isFinite(val)){
+          var cell={t:'n',v:val}; if(z) cell.z=z; else if(key==='cp'||key==='cpk') cell.z='0.000';
+          ws[addr]=cell;
+        } else if(val===Infinity){ ws[addr]={t:'s',v:'∞'}; }
+        else delete ws[addr];
+      }
+      put('avg',st.avg);put('max',st.max);put('min',st.min);put('range',st.range);put('cp',st.cp);put('cpk',st.cpk);
+    });
+    XLSX.writeFile(wb,S.name+'_loc_cpk.xlsx',{cellStyles:true});
+  });
+})();
+</script>
+</body>
+</html>

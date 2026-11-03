@@ -21,6 +21,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 :root{
   --bg:#eceff2; --panel:#ffffff; --ink:#15202b; --muted:#5d6b79; --line:#d3d9df;
@@ -614,9 +615,7 @@ dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
   }
 
   /* ---------- tải file Excel đã lọc (sửa trực tiếp trên file gốc) ---------- */
-  $('dl').addEventListener('click', function(){
-    if(!S.items.length||!S.buf) return;
-    readParams();
+  function dlSheetJS(){
     var wb=XLSX.read(S.buf,{type:'array',cellStyles:true,cellNF:true});
     var ws=wb.Sheets[wb.SheetNames[0]], r0=S.r0, c0=S.c0;
     var c={}, k, width=S.header.length, rg=XLSX.utils.decode_range(ws['!ref']);
@@ -643,6 +642,81 @@ dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
       put('avg',st.avg);put('max',st.max);put('min',st.min);put('range',st.range);put('cp',st.cp);put('cpk',st.cpk);
     });
     XLSX.writeFile(wb,S.name+'_loc_cpk.xlsx',{cellStyles:true});
+  }
+
+  /* Cách chính: sửa thẳng XML trong file .xlsx gốc -> giữ nguyên 100% định dạng (màu, viền, font, merge, ảnh...) */
+  function colName(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;}
+  function colIdx(ref){var s=ref.replace(/\d+/,''),n=0;for(var i=0;i<s.length;i++)n=n*26+s.charCodeAt(i)-64;return n-1;}
+  function dlXml(zip){
+    var wbF=zip.file('xl/workbook.xml'), relF=zip.file('xl/_rels/workbook.xml.rels');
+    if(!wbF||!relF) throw new Error('not xlsx');
+    return Promise.all([wbF.async('string'),relF.async('string')]).then(function(t){
+      var wbx=t[0], rels=t[1];
+      var m=/<sheet\b[^>]*?r:id="([^"]+)"/.exec(wbx); if(!m) throw new Error('no sheet');
+      var rm=new RegExp('<Relationship\\b[^>]*?Id="'+m[1]+'"[^>]*>').exec(rels); if(!rm) throw new Error('no rel');
+      var tg=/Target="([^"]+)"/.exec(rm[0])[1];
+      var path=tg.charAt(0)==='/'?tg.slice(1):'xl/'+tg;
+      var sf=zip.file(path); if(!sf) throw new Error('no sheet file');
+      return sf.async('string').then(function(xml){
+        var doc=new DOMParser().parseFromString(xml,'application/xml');
+        if(doc.getElementsByTagName('parsererror').length) throw new Error('xml');
+        var NS=doc.documentElement.namespaceURI, rowEls={}, rs=doc.getElementsByTagNameNS(NS,'row'), i;
+        for(i=0;i<rs.length;i++){ rs[i].removeAttribute('spans'); rowEls[rs[i].getAttribute('r')]=rs[i]; }
+        function cellEl(row,col,make){
+          var ch=row.childNodes, before=null;
+          for(var q=0;q<ch.length;q++){ var e=ch[q]; if(e.nodeType!==1||e.localName!=='c') continue;
+            var ci=colIdx(e.getAttribute('r')); if(ci===col) return e; if(ci>col){before=e;break;} }
+          if(!make) return null;
+          var n=doc.createElementNS(NS,'c'); n.setAttribute('r',colName(col)+row.getAttribute('r')); row.insertBefore(n,before); return n;
+        }
+        function clear(c){ while(c.firstChild) c.removeChild(c.firstChild); c.removeAttribute('t'); }
+        function setNum(c,v){ clear(c); var e=doc.createElementNS(NS,'v'); e.textContent=String(v); c.appendChild(e); }
+        function setStr(c,str){ clear(c); c.setAttribute('t','inlineStr'); var is=doc.createElementNS(NS,'is'), x=doc.createElementNS(NS,'t'); x.textContent=str; is.appendChild(x); c.appendChild(is); }
+        var r0=S.r0, c0=S.c0, c={}, k, width=S.header.length, hdr=rowEls[String(r0+1)];
+        for(k in S.cols) c[k]=S.cols[k];
+        ['avg','max','min','range','cp','cpk'].forEach(function(key){
+          if(c[key]<0){ c[key]=width++; if(hdr) setStr(cellEl(hdr,c0+c[key],true), key.charAt(0).toUpperCase()+key.slice(1)); }
+        });
+        S.items.forEach(function(it){
+          var row=rowEls[String(r0+it.rowIdx+1)]; if(!row) return;
+          S.pcsCols.forEach(function(col,idx){            /* xóa data pcs bị loại, giữ style ô */
+            if(!S.keep[idx]){ var ce=cellEl(row,c0+col,false); if(ce) clear(ce); }
+          });
+          var st=stats(it,S.keep);
+          function put(key,val){
+            var ce=cellEl(row,c0+c[key],true);
+            if(typeof val==='number'&&isFinite(val)) setNum(ce,val);
+            else if(val===Infinity) setStr(ce,'∞');
+            else clear(ce);
+          }
+          put('avg',st.avg);put('max',st.max);put('min',st.min);put('range',st.range);put('cp',st.cp);put('cpk',st.cpk);
+        });
+        zip.file(path,'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+new XMLSerializer().serializeToString(doc));
+        /* bỏ calcChain (tránh Excel báo lỗi) và bắt Excel tính lại công thức khi mở */
+        if(zip.file('xl/calcChain.xml')){
+          zip.remove('xl/calcChain.xml');
+          rels=rels.replace(/<Relationship\b[^>]*calcChain[^>]*\/>/,'');
+        }
+        zip.file('xl/_rels/workbook.xml.rels',rels);
+        if(/<calcPr\b/.test(wbx)){ if(!/fullCalcOnLoad/.test(wbx)) wbx=wbx.replace(/<calcPr\b/,'<calcPr fullCalcOnLoad="1"'); }
+        else wbx=wbx.replace(/(<extLst\b|<\/workbook>)/,'<calcPr fullCalcOnLoad="1"/>$1');
+        zip.file('xl/workbook.xml',wbx);
+        var ctF=zip.file('[Content_Types].xml');
+        return (ctF?ctF.async('string'):Promise.resolve(null)).then(function(ct){
+          if(ct) zip.file('[Content_Types].xml',ct.replace(/<Override\b[^>]*calcChain[^>]*\/>/,''));
+          return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'});
+        });
+      });
+    });
+  }
+  $('dl').addEventListener('click', function(){
+    if(!S.items.length||!S.buf) return;
+    readParams();
+    if(typeof JSZip==='undefined'){ dlSheetJS(); return; }
+    JSZip.loadAsync(S.buf).then(dlXml).then(function(blob){
+      var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=S.name+'_loc_cpk.xlsx';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href)},4000);
+    }).then(null,function(){ dlSheetJS(); });   /* .xls cũ hoặc lỗi bất ngờ -> dùng cách dự phòng */
   });
 })();
 </script>

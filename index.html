@@ -136,6 +136,13 @@ dialog p,dialog ol{font-size:14px;margin:0 0 10px;padding-left:0}
 dialog ol{padding-left:20px}
 dialog li{margin-bottom:4px}
 dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
+/* điện thoại: thanh công cụ xuống dòng, không dính trên cùng */
+@media(max-width:860px){
+  .toolbar{position:static;flex-wrap:wrap;white-space:normal;overflow-x:visible;gap:8px 10px}
+  .toolbar .tb-name{flex:1 1 80px;min-width:0;white-space:nowrap}
+  .toolbar .tb-f{flex:1 1 100%;flex-wrap:wrap;gap:6px 8px}
+  .toolbar #run,.toolbar #dl{flex:1 1 calc(50% - 6px);padding:10px 12px}
+}
 </style>
 </head>
 <body>

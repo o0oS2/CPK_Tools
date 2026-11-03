@@ -61,11 +61,11 @@ body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
 .tb-f{flex:none;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500}
 .toolbar input[type=number]{width:72px;padding:7px 8px;font-size:14px}
 .toolbar select{width:auto;padding:7px 8px;font-size:14px}
+.toolbar button.op{flex:none;min-width:44px;padding:7px 10px;font-size:16px;line-height:1.2;background:var(--panel);color:var(--ink);border:1px solid var(--line)}
 @media(max-width:860px){.toolbar{padding:8px 12px}}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
 .side{position:sticky;top:12px;display:flex;flex-direction:column;gap:14px}
 @media(max-width:860px){.side{position:static}}
-@media(max-width:860px){.cpk-w{display:none}}
 .drop{border:1.5px dashed var(--line);border-radius:8px;padding:18px 12px;text-align:center;cursor:pointer;color:var(--muted);font-size:14px;transition:border-color .15s,background .15s}
 .drop:hover,.drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
 .drop b{color:var(--ink);display:block;font-weight:500;margin-bottom:2px;word-break:break-all}
@@ -162,12 +162,10 @@ dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
   <label class="tb-f" for="keepN">PCS cần:
     <input type="number" id="keepN" min="2" step="1" placeholder="vd: 5" disabled></label>
   <span class="tb-f" role="group" aria-label="Điều kiện CPK">
-    Điều kiện<span class="cpk-w"> CPK</span>:
-    <input type="number" id="hiV" step="0.01" placeholder="–" disabled title="Cận trên a (để trống = không giới hạn)" aria-label="Cận trên a">
-    <select id="hiOp" disabled aria-label="So sánh với cận trên" title="a &gt; CPK hoặc a ≥ CPK"><option value="ge">≥</option><option value="gt">&gt;</option></select>
+    Điều kiện:
     <span>CPK</span>
-    <select id="loOp" disabled aria-label="So sánh với cận dưới" title="CPK &gt; b hoặc CPK ≥ b"><option value="ge">≥</option><option value="gt">&gt;</option></select>
-    <input type="number" id="loV" value="1.33" step="0.01" placeholder="–" disabled title="Cận dưới b (để trống = không giới hạn)" aria-label="Cận dưới b">
+    <button type="button" id="loOp" class="op" data-v="ge" disabled aria-label="Bấm để đổi giữa lớn hơn và lớn hơn hoặc bằng" title="Bấm để đổi: ≥ (lớn hơn hoặc bằng) / &gt; (lớn hơn)">≥</button>
+    <input type="number" id="loV" value="1.33" step="0.01" placeholder="–" disabled title="Ngưỡng CPK" aria-label="Ngưỡng CPK">
   </span>
   <button id="run" disabled>Phân tích</button>
   <button id="dl" class="ghost" disabled>Tải file đã lọc</button>
@@ -283,7 +281,7 @@ dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
         parse(rows);
         S.name=f.name.replace(/\.[^.]+$/,'');
         $('fname').textContent=f.name; $('fname').classList.add('has'); $('fname').title=f.name;
-        ['keepN','hiV','hiOp','loOp','loV','run'].forEach(function(id){$(id).disabled=false});
+        ['keepN','loOp','loV','run'].forEach(function(id){$(id).disabled=false});
         $('keepN').max=S.pcs.length;
         $('keepN').value=S.pcs.length;
         $('pcsCount').textContent=S.pcs.length+' pcs';
@@ -479,8 +477,8 @@ dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
   /* ---------- chạy ---------- */
   function readParams(){
     function num(id){ var v=$(id).value.trim(); if(v==='') return null; v=parseFloat(v); return isFinite(v)?v:null; }
-    LO=num('loV'); HI=num('hiV'); LOE=$('loOp').value==='ge'; HIE=$('hiOp').value==='ge';
-    if(LO===null && HI===null){ LO=1.33; $('loV').value='1.33'; }
+    LO=num('loV'); HI=null; LOE=$('loOp').dataset.v==='ge';
+    if(LO===null){ LO=1.33; $('loV').value='1.33'; }
   }
   function run(){
     if(!S.items.length) return;
@@ -495,8 +493,12 @@ dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
     render();
   }
   $('run').addEventListener('click', run);
-  ['keepN','hiV','loV'].forEach(function(id){ $(id).addEventListener('keydown',function(e){if(e.key==='Enter')run();}); });
-  ['hiOp','loOp'].forEach(function(id){ $(id).addEventListener('change', run); });
+  ['keepN','loV'].forEach(function(id){ $(id).addEventListener('keydown',function(e){if(e.key==='Enter')run();}); });
+  $('loOp').addEventListener('click', function(){
+    var b=this, ge=b.dataset.v==='ge';
+    b.dataset.v=ge?'gt':'ge'; b.textContent=ge?'>':'≥';
+    run();
+  });
 
   /* ---------- hiển thị ---------- */
   function fmt(x,d){

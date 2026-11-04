@@ -295,6 +295,13 @@ dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
     r.readAsArrayBuffer(f);
   }
 
+  function toNum(v){
+    if(typeof v==='number') return isFinite(v)?v:NaN;
+    if(v==null) return NaN;
+    var t=String(v).replace(/[±+\s\u00a0]/g,'').replace(',','.');
+    if(t==='') return NaN;
+    var n=Number(t); return isFinite(n)?n:NaN;
+  }
   function parse(rows){
     if(!rows.length) throw new Error('File không có dữ liệu.');
     var h=rows[0].map(function(x){return x==null?'':String(x).trim()});
@@ -312,9 +319,17 @@ dialog .actions{display:flex;justify-content:flex-end;margin-top:12px}
     for(var i=1;i<rows.length;i++){
       var r=rows[i];
       if(!r||r[c.item]==null||String(r[c.item]).trim()==='') continue;
-      var nom=Number(r[c.nom]), up=Number(r[c.up]), lo=Number(r[c.lo]);
+      var nom=toNum(r[c.nom]), up=toNum(r[c.up]), lo=toNum(r[c.lo]);
       if(!isFinite(nom)||!isFinite(up)||!isFinite(lo)) continue;
-      var vals=pcsCols.map(function(j){var v=r[j]; return (typeof v==='number'&&isFinite(v))?v:NaN;});
+      /* chuẩn hóa dung sai: về dạng UpTol >= 0 >= LowTol (so với Nominal) */
+      var rawUp=up, rawLo=lo;
+      if(typeof r[c.up]==='string' && /±/.test(r[c.up]) && !/±/.test(String(r[c.lo]))) { up=Math.abs(up); }
+      if(typeof r[c.lo]==='string' && /±/.test(r[c.lo])) { lo=-Math.abs(lo); }
+      if(up<lo){ var t=up; up=lo; lo=t; }
+      if(lo>0 && nom>=lo-1e-12 && nom<=up+1e-12 && up>0){ up=up-nom; lo=lo-nom; }   /* nhập giới hạn tuyệt đối (vd 9.95 / 10.05) */
+      else if(lo>0){ lo=-lo; }                                                       /* nhập LowTol dương (vd 0.05) */
+      if(up<0 && lo<0){ up=-up; }                                                    /* UpTol nhập âm */
+      var vals=pcsCols.map(function(j){return toNum(r[j]);});
       items.push({rowIdx:i, name:String(r[c.item]), nom:nom, up:up, lo:lo, vals:vals});
     }
     if(!items.length) throw new Error('Không có dòng dữ liệu hợp lệ nào.');
